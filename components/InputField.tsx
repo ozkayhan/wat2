@@ -8,27 +8,28 @@ interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const InputField: React.FC<InputFieldProps> = ({ label, subLabel, icon, className = '', ...props }) => {
   return (
-    <div className="flex flex-col gap-1.5 w-full">
-      <div className="flex justify-between items-baseline">
-        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+    <div className="flex flex-col gap-2 w-full group">
+      <div className="flex justify-between items-baseline px-1">
+        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider transition-colors group-focus-within:text-cyan-400">
           {label}
         </label>
-        {subLabel && <span className="text-[10px] text-slate-500">{subLabel}</span>}
+        {subLabel && <span className="text-[9px] text-slate-500 font-medium">{subLabel}</span>}
       </div>
       
-      <div className="relative group">
+      <div className="relative">
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors pointer-events-none">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors duration-300 pointer-events-none">
             {icon}
           </div>
         )}
         <input
           className={`
-            w-full bg-slate-900 border border-slate-700 rounded-lg 
-            text-slate-100 placeholder-slate-600 font-mono text-sm
-            focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500
-            transition-all duration-200 py-2.5
-            ${icon ? 'pl-9 pr-3' : 'px-3'}
+            w-full bg-slate-950/30 border border-white/10 rounded-2xl 
+            text-slate-100 placeholder-slate-700 font-mono text-sm
+            focus:outline-none focus:bg-slate-900/50 focus:border-cyan-500/50 focus:ring-4 focus:ring-cyan-500/10
+            transition-all duration-300 py-3.5
+            shadow-inner
+            ${icon ? 'pl-11 pr-4' : 'px-4'}
             ${props.type === 'date' ? '[color-scheme:dark]' : ''}
             ${className}
           `}
