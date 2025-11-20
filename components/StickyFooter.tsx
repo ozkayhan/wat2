@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CalculatedResults } from '../types';
-import { TrendingUp, TrendingDown, AlertCircle, CheckCircle2, Instagram, Wallet, Receipt } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, CheckCircle2, Instagram, Wallet, Receipt, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface StickyFooterProps {
   results: CalculatedResults;
+  upfrontCost?: number; // Passed for the breakdown view
+  travelCost?: number; // Passed for the breakdown view
 }
 
 const formatCurrency = (val: number) => {
@@ -12,7 +14,9 @@ const formatCurrency = (val: number) => {
   return `${isNeg ? '-' : ''}$${absVal.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
-export const StickyFooter: React.FC<StickyFooterProps> = ({ results }) => {
+export const StickyFooter: React.FC<StickyFooterProps> = ({ results, upfrontCost = 0, travelCost = 0 }) => {
+  const [showBreakdown, setShowBreakdown] = useState(true);
+  
   const { 
     isValid, 
     weeklyNetProfit, 
@@ -21,8 +25,14 @@ export const StickyFooter: React.FC<StickyFooterProps> = ({ results }) => {
     totalAfterSplurge, 
     grossWeeklyIncome, 
     netWeeklyIncome,
-    totalSeasonTax 
+    totalSeasonTax,
+    totalSeasonGross,
+    totalLivingCost,
   } = results;
+
+  // Recalculate Operational Profit (Cash Flow) for the breakdown
+  // Operational Profit = Total Gross - Tax - Living. (Before Upfront Deduction)
+  const totalOperationalProfit = totalSeasonGross - totalSeasonTax - totalLivingCost;
 
   const isProfit = totalSeasonProfit >= 0;
   const profitColor = isProfit ? 'text-emerald-400' : 'text-rose-400';
@@ -63,16 +73,16 @@ export const StickyFooter: React.FC<StickyFooterProps> = ({ results }) => {
 
       <div className="p-5 space-y-5">
         
-        {/* Stats Grid */}
+        {/* Stats Grid - Cash Flow (Operating Profit) */}
         <div className="grid grid-cols-2 gap-3">
            <div className="bg-slate-900/40 rounded-2xl p-4 border border-white/5 flex flex-col gap-1">
-              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Weekly Profit</span>
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Weekly Cash</span>
               <span className={`text-lg font-mono font-bold ${weeklyNetProfit >= 0 ? 'text-slate-200' : 'text-rose-400'}`}>
                 {formatCurrency(weeklyNetProfit)}
               </span>
            </div>
            <div className="bg-slate-900/40 rounded-2xl p-4 border border-white/5 flex flex-col gap-1">
-              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Monthly Profit</span>
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Monthly Cash</span>
               <span className={`text-lg font-mono font-bold ${monthlyNetProfit >= 0 ? 'text-slate-200' : 'text-rose-400'}`}>
                 {formatCurrency(monthlyNetProfit)}
               </span>
@@ -88,13 +98,16 @@ export const StickyFooter: React.FC<StickyFooterProps> = ({ results }) => {
                  <Wallet className="w-12 h-12 text-cyan-400" />
               </div>
               <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mb-1 block">
-                Total Season Kasa
+                Total Season Profit
               </span>
               <div className="flex items-center gap-3">
                  <span className={`text-4xl font-black tracking-tighter font-mono ${profitColor}`}>
                     {formatCurrency(totalSeasonProfit)}
                  </span>
                  {isProfit ? <TrendingUp className="w-5 h-5 text-emerald-500"/> : <TrendingDown className="w-5 h-5 text-rose-500"/>}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-2 font-medium">
+                *After deducting Upfront Cost
               </div>
            </div>
 
@@ -119,12 +132,69 @@ export const StickyFooter: React.FC<StickyFooterProps> = ({ results }) => {
 
         </div>
 
+        {/* DETAILED BREAKDOWN (Receipt Style) */}
+        <div className="mt-6 pt-6 border-t border-dashed border-white/10">
+          <button 
+            onClick={() => setShowBreakdown(!showBreakdown)}
+            className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors mb-4"
+          >
+            <span>Financial Breakdown</span>
+            {showBreakdown ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}
+          </button>
+
+          {showBreakdown && (
+            <div className="space-y-2 text-[11px] font-mono text-slate-500 leading-relaxed">
+              
+              <div className="flex justify-between">
+                <span>Total Gross Income</span>
+                <span className="text-slate-300">{formatCurrency(totalSeasonGross)}</span>
+              </div>
+              
+              <div className="flex justify-between text-rose-400/80">
+                <span>Total Taxes</span>
+                <span>- {formatCurrency(totalSeasonTax)}</span>
+              </div>
+
+              <div className="flex justify-between text-rose-400/80 border-b border-white/5 pb-2">
+                 <span>Living Expenses</span>
+                 <span>- {formatCurrency(totalLivingCost)}</span>
+              </div>
+
+              <div className="flex justify-between py-1 text-slate-300 font-bold">
+                 <span>Operational Cash</span>
+                 <span>{formatCurrency(totalOperationalProfit)}</span>
+              </div>
+
+              <div className="flex justify-between text-rose-400/80 border-b border-white/5 pb-2">
+                 <span>Upfront Cost (Paid Back)</span>
+                 <span>- {formatCurrency(upfrontCost)}</span>
+              </div>
+
+              <div className="flex justify-between py-1 text-cyan-400 font-bold">
+                 <span>Net Profit</span>
+                 <span>{formatCurrency(totalSeasonProfit)}</span>
+              </div>
+
+              <div className="flex justify-between text-amber-500/80 border-b border-white/5 pb-2">
+                 <span>Travel & Shopping</span>
+                 <span>- {formatCurrency(travelCost)}</span>
+              </div>
+
+               <div className="flex justify-between pt-1 text-emerald-400 font-black text-xs">
+                 <span>FINAL BALANCE</span>
+                 <span>{formatCurrency(totalAfterSplurge)}</span>
+              </div>
+
+            </div>
+          )}
+        </div>
+
         {/* Footer Link */}
         <a 
           href="https://www.instagram.com/ouz.k.a/" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-white/5 group cursor-pointer"
+          className="flex items-center justify-center gap-2 mt-2 pt-4 border-t border-white/5 group cursor-pointer opacity-50 hover:opacity-100 transition-opacity"
         >
           <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-500 group-hover:text-cyan-400 transition-colors">
             Made by Oguz Ayhan

@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { RefreshCw, Plane, Briefcase, DollarSign, Home, Calendar, Utensils, ShoppingBag, FileText, Calculator } from 'lucide-react';
+import { RefreshCw, Plane, Briefcase, DollarSign, Home, Calendar, Utensils, ShoppingBag, FileText, MapPin } from 'lucide-react';
 import { SectionCard } from './components/SectionCard';
 import { InputField } from './components/InputField';
-import { StickyFooter } from './components/StickyFooter'; // This now acts as the Dashboard Panel
+import { SelectField } from './components/SelectField';
+import { StickyFooter } from './components/StickyFooter'; 
 import { Toggle } from './components/Toggle';
 import { AppState, CalculatedResults } from './types';
+import { US_STATES } from './constants';
 
 const DEFAULT_STATE: AppState = {
   startDate: '2025-06-17',
@@ -14,7 +16,8 @@ const DEFAULT_STATE: AppState = {
   weeklyLivingCost: '100',
   travelCost: '1000',
   purchaseCost: '',
-  stateTaxRate: '3.5',
+  selectedState: '',
+  stateTaxRate: '0',
   isFicaExempt: true,
   includeOvertime: true,
   job1: {
@@ -40,6 +43,17 @@ export default function App() {
   // Input Handlers
   const updateState = (key: keyof AppState, value: string | boolean) => {
     setState((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedName = e.target.value;
+    const stateData = US_STATES.find(s => s.name === selectedName);
+    
+    setState(prev => ({
+      ...prev,
+      selectedState: selectedName,
+      stateTaxRate: stateData ? stateData.rate.toString() : '0'
+    }));
   };
 
   const updateJob = (job: 'job1' | 'job2', field: 'wage' | 'hours', value: string) => {
@@ -72,6 +86,7 @@ export default function App() {
         totalSeasonGross: 0,
         totalSeasonTax: 0,
         totalWeeklyExpense: 0,
+        totalLivingCost: 0,
         weeklyNetProfit: 0,
         monthlyNetProfit: 0,
         totalSeasonProfit: 0,
@@ -79,17 +94,27 @@ export default function App() {
       };
     }
 
+    // 1. Time Calculation
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
     const totalWeeks = diffDays / 7;
 
+    // 2. Expense Parsing
     const costUpfront = parseFloat(upfrontCost) || 0;
     const costHousing = parseFloat(housingCost) || 0;
     const costLiving = parseFloat(weeklyLivingCost) || 0;
+    const costTravel = parseFloat(travelCost) || 0;
+    const costPurchase = parseFloat(purchaseCost) || 0;
     
+    // Only for informational display (Amortization)
     const weeklyProgramCost = totalWeeks > 0 ? costUpfront / totalWeeks : 0;
-    const totalWeeklyExpense = costHousing + costLiving + weeklyProgramCost;
+    
+    // Operational Expenses (Rent + Food only)
+    const weeklyOperationalExpense = costHousing + costLiving;
+    const totalWeeklyExpense = weeklyOperationalExpense; 
+    const totalLivingCost = weeklyOperationalExpense * totalWeeks;
 
+    // 3. Income Calculation
     const calculateJobIncome = (wageStr: string, hoursStr: string) => {
       const wage = parseFloat(wageStr) || 0;
       const hours = parseFloat(hoursStr) || 0;
@@ -107,6 +132,8 @@ export default function App() {
     const grossWeeklyIncome = gross1 + gross2;
     const totalSeasonGross = grossWeeklyIncome * totalWeeks;
 
+    // 4. Tax Calculation (Waterfall)
+    // Federal: 2024 Bracket estimation (10% first 11600, 12% remainder)
     let federalTaxTotal = 0;
     if (totalSeasonGross <= 11600) {
       federalTaxTotal = totalSeasonGross * 0.10;
@@ -114,20 +141,34 @@ export default function App() {
       federalTaxTotal = (11600 * 0.10) + ((totalSeasonGross - 11600) * 0.12);
     }
 
+    // State: Flat rate on Gross
     const stateRate = parseFloat(stateTaxRate) || 0;
     const stateTaxTotal = totalSeasonGross * (stateRate / 100);
+    
+    // FICA: Flat rate on Gross
     const ficaTaxTotal = isFicaExempt ? 0 : totalSeasonGross * 0.0765;
 
     const totalSeasonTax = federalTaxTotal + stateTaxTotal + ficaTaxTotal;
     const weeklyTax = totalSeasonTax / totalWeeks;
 
-    const netWeeklyIncome = grossWeeklyIncome - weeklyTax;
-    const weeklyNetProfit = netWeeklyIncome - totalWeeklyExpense;
+    // 5. Net Income & Cash Flow Logic
+    const netWeeklyIncome = grossWeeklyIncome - weeklyTax; // Paycheck amount
+    
+    // Weekly Net Profit = Paycheck - Living Expenses
+    // This represents "Weekly Savings Potential" (Cash Flow)
+    // Does NOT subtract Upfront Cost, so user sees actual cash accumulation.
+    const weeklyNetProfit = netWeeklyIncome - weeklyOperationalExpense;
+    
     const monthlyNetProfit = weeklyNetProfit * 4;
-    const totalSeasonProfit = weeklyNetProfit * totalWeeks;
+    
+    // 6. Season Profit (ROI)
+    // Accumulated Savings - Initial Investment (Upfront Cost)
+    // This represents "Did I make money overall after paying my parents back?"
+    const totalOperationalSavings = weeklyNetProfit * totalWeeks;
+    const totalSeasonProfit = totalOperationalSavings - costUpfront;
 
-    const costTravel = parseFloat(travelCost) || 0;
-    const costPurchase = parseFloat(purchaseCost) || 0;
+    // 7. Final Balance Logic
+    // This represents "Cash in Pocket" to take home
     const totalAfterSplurge = totalSeasonProfit - costTravel - costPurchase;
 
     return {
@@ -140,6 +181,7 @@ export default function App() {
       totalSeasonGross,
       totalSeasonTax,
       totalWeeklyExpense,
+      totalLivingCost,
       weeklyNetProfit,
       monthlyNetProfit,
       totalSeasonProfit,
@@ -268,12 +310,13 @@ export default function App() {
             <SectionCard title="Taxes & Deductions" icon={<FileText className="w-4 h-4 text-blue-400"/>} borderColor="border-blue-500/20" glowColor="shadow-blue-500/10">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
                 <div className="space-y-4">
-                   <InputField
-                      label="State Tax (%)"
-                      subLabel="Est. 3% - 6%"
-                      type="number"
-                      value={state.stateTaxRate}
-                      onChange={(e) => updateState('stateTaxRate', e.target.value)}
+                  <SelectField 
+                    label="Work State"
+                    subLabel={`Tax: ${state.stateTaxRate}%`}
+                    icon={<MapPin className="w-4 h-4"/>}
+                    value={state.selectedState}
+                    onChange={handleStateChange}
+                    options={US_STATES.map(s => ({ label: s.name, value: s.name }))}
                   />
                   <div className="text-[10px] text-slate-500 leading-relaxed">
                     * Federal tax is calculated automatically based on 2024 NRA brackets.
@@ -348,7 +391,11 @@ export default function App() {
              <div className="lg:sticky lg:top-8 space-y-6">
                 
                 {/* The Logic Component (StickyFooter) is now a Card */}
-                <StickyFooter results={results} />
+                <StickyFooter 
+                  results={results} 
+                  upfrontCost={parseFloat(state.upfrontCost) || 0}
+                  travelCost={(parseFloat(state.travelCost) || 0) + (parseFloat(state.purchaseCost) || 0)}
+                />
 
                 <div className="text-center">
                   <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest opacity-50">

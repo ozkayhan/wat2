@@ -11,6 +11,7 @@ export interface AppState {
   weeklyLivingCost: string;
   travelCost: string;
   purchaseCost: string;
+  selectedState: string;
   stateTaxRate: string;
   isFicaExempt: boolean;
   includeOvertime: boolean;
@@ -32,6 +33,7 @@ export interface CalculatedResults {
   
   // Expenses
   totalWeeklyExpense: number;
+  totalLivingCost: number; // New field for breakdown
   
   // Profit
   weeklyNetProfit: number; // (Net Income - Expenses)
